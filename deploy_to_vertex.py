@@ -248,7 +248,7 @@ model, endpoint = deploy_model_vllm_tpu(
         service_account=SERVICE_ACCOUNT,
         tensor_parallel_size=1,
         machine_type="ct5lp-hightpu-4t",
-        tpu_topology="2x2",
+        tpu_topology="1x4",
         max_model_len=max_model_len,
         use_dedicated_endpoint=True,
         )
