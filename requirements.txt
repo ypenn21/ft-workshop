@@ -1,0 +1,10 @@
+jax[tpu]
+tensorflow-cpu
+keras-hub
+torch
+torchvision
+torchaudio
+transformers
+accelerate
+sentencepiece
+google-cloud-aiplatform
