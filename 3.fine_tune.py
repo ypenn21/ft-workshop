@@ -231,7 +231,7 @@ gemma_lm.compile(
 
 BATCH_SIZE=8*NUM_TPUS
 
-gemma_lm.fit(training_data, epochs=5, batch_size=BATCH_SIZE)
+gemma_lm.fit(training_data, epochs=2, batch_size=BATCH_SIZE)
 
 """
 Inference after fine-tuning
