@@ -229,9 +229,9 @@ gemma_lm.compile(
         weighted_metrics=[keras.metrics.SparseCategoricalAccuracy()],
         sampler="greedy")
 
-BATCH_SIZE=1*NUM_TPUS
+BATCH_SIZE=4*NUM_TPUS
 
-gemma_lm.fit(training_data, epochs=1, batch_size=BATCH_SIZE)
+gemma_lm.fit(training_data, epochs=10, batch_size=BATCH_SIZE)
 
 """
 Inference after fine-tuning
