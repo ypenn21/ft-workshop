@@ -73,16 +73,9 @@ DATASET_PATH = f"{DATASET_NAME}.jsonl"
 DATASET_URL = f"https://huggingface.co/datasets/databricks/{DATASET_NAME}/resolve/main/{DATASET_PATH}"
 
 # Finetuned model
-FINETUNED_MODEL_DIR = f"./{MODEL_NAME}_{DATASET_NAME}"
+FINETUNED_MODEL_DIR = "./content/finetuned"
 FINETUNED_WEIGHTS_PATH = f"{FINETUNED_MODEL_DIR}/model.weights.h5"
 FINETUNED_VOCAB_PATH = f"{FINETUNED_MODEL_DIR}/vocabulary.spm"
-
-# Converted model
-HUGGINGFACE_MODEL_DIR = f"./{MODEL_NAME}_huggingface"
-
-# Deployed model
-#DEPLOYED_MODEL_URI = f"{BUCKET_URI}/{MODEL_NAME}"
-
 
 """
 Load model
@@ -203,7 +196,7 @@ def generate_training_data(training_ratio: int = 100) -> list[str]:
         return data[:training_data_count]
 
 # Limit to 10% for test purposes
-training_data = generate_training_data(training_ratio=50)
+training_data = generate_training_data(training_ratio=100)
 
 
 """
@@ -246,14 +239,10 @@ Inference after fine-tuning
 
 print ("After fine-tuning:\n")
 for prompt in TEST_PROMPTS:
-        output = gemma_lm.generate(prompt, max_length=48)
+        output = gemma_lm.generate(prompt, max_length=30)
         print(f"{output}\n{'- '*40}")
 
 # Finetuned model
-FINETUNED_MODEL_DIR = "./content/finetuned"
-FINETUNED_WEIGHTS_PATH = f"{FINETUNED_MODEL_DIR}/model.weights.h5"
-FINETUNED_VOCAB_PATH = f"{FINETUNED_MODEL_DIR}/vocabulary.spm"
-
 
 print ("\nSaving fine-tuned model...\n")
 
