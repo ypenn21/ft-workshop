@@ -218,8 +218,8 @@ gemma_lm.summary()
 gemma_lm.preprocessor.sequence_length = 128
 # Use AdamW (a common optimizer for transformer models).
 optimizer = keras.optimizers.AdamW(
-        learning_rate=5e-5,
-        weight_decay=0.01,)
+        learning_rate=1e-5,
+        weight_decay=0.001,)
 # Exclude layernorm and bias terms from decay.
 optimizer.exclude_from_weight_decay(var_names=["bias", "scale"])
 
@@ -229,7 +229,7 @@ gemma_lm.compile(
         weighted_metrics=[keras.metrics.SparseCategoricalAccuracy()],
         sampler="greedy")
 
-BATCH_SIZE=4*NUM_TPUS
+BATCH_SIZE=2*NUM_TPUS
 
 gemma_lm.fit(training_data, epochs=10, batch_size=BATCH_SIZE)
 
