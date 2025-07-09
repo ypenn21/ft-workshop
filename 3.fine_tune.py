@@ -249,6 +249,6 @@ print ("\nSaving fine-tuned model...\n")
 # Make sure the directory exists
 os.system("mkdir -p "+FINETUNED_MODEL_DIR)
 
-gemma_lm.save_weights(FINETUNED_WEIGHTS_PATH)
+gemma_lm.save_weights(FINETUNED_WEIGHTS_PATH, overwrite=True, max_shard_size=4)
 
 gemma_lm.preprocessor.tokenizer.save_assets(FINETUNED_MODEL_DIR)
