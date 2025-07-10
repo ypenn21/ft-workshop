@@ -226,7 +226,7 @@ def deploy_model_vllm_gpu(
             machine_type=machine_type,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
-            deploy_request_timeout=1800,
+            deploy_request_timeout=7200,
             service_account=service_account,
             min_replica_count=min_replica_count,
             max_replica_count=max_replica_count,
