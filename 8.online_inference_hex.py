@@ -79,7 +79,7 @@ def test_vertexai_endpoint(client, endpoint: aiplatform.Endpoint):
                 "raw_response": True,
                 }
         response = client.predict(instances=[instance], endpoint=endpoint)
-        output = response.predictions[0].split("Instruction")[0]
+        output = response.predictions[0].split("Instruction")[0].split("Explanation")[0]
         print(f"{question}\n{output}\n{'- '*80}")
 
 
