@@ -55,8 +55,10 @@ def main():
             project=PROJECT_ID, location=REGION, endpoint=ENDPOINT_ID,
             )
     test_examples = [
-            "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
-            "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+            #"Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+            #"A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+            "Peter has 25 apples to sell. He sells the first 10 for $1 each, the second lot of 10 for $0.75 each and the last 5 for $0.50 each. How much money does he make?",
+            "Bea has $40. She wants to rent a bike for $4/hour. How many hours can she ride the bike?",
             ]
 
 

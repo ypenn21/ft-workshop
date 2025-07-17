@@ -68,8 +68,8 @@ keras.utils.set_random_seed(42)
 keras.mixed_precision.set_global_policy("mixed_bfloat16")
 import keras_hub
 
-# Create a device mesh with (1, 8) shape so that the weights are sharded across
-# all 4 TPUs.
+# Create a device mesh with (1, NUM_TPUS) shape so that the weights are sharded across
+# all TPUs.
 device_mesh = keras.distribution.DeviceMesh(
             (1, NUM_TPUS),
             ["batch", "model"],
@@ -150,7 +150,7 @@ Download and prepare dataset
 """
 
 print("\nDowloading and preparing fine-tuning dataset...\n")
-
+# dataset is in vertex ai format {"input_text": "...", "output_text": "..."}
 #os.system(f"wget -nv -nc -O {DATASET_PATH} {DATASET_URL}")
 
 def generate_training_data(training_ratio: int = 100) -> list[str]:
@@ -172,7 +172,7 @@ def generate_training_data(training_ratio: int = 100) -> list[str]:
         print(f"Training examples: {training_data_count}/{total_data_count}")
         return data[:training_data_count]
 
-# Limit to 10% for test purposes
+# Limit to % for test purposes
 
 training_data = generate_training_data(training_ratio=100)
 
