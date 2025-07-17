@@ -225,7 +225,7 @@ model, endpoint = deploy_model_vllm_gpu(
         accelerator_type= "NVIDIA_L4",
         accelerator_count = 1,
         max_model_len=4096,
-        max_num_seqs=128,
+        max_num_seqs=256,
         use_dedicated_endpoint=False,
         )
 
@@ -233,17 +233,13 @@ model, endpoint = deploy_model_vllm_gpu(
 
 # Online inference
 
-
 TEST_EXAMPLES = [
-                "What are good activities for a toddler?",
-                "What can we hope to see after rain and sun?",
-                "What's the most famous painting by Monet?",
-                "Who engineered the Statue of Liberty?",
-                'Who were "The Lumières"?',
-                ]
+        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        ]
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\n\nResponse:\n{response}"
+PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -254,7 +250,7 @@ def test_vertexai_endpoint(endpoint: aiplatform.Endpoint):
     for question, prompt in zip(TEST_EXAMPLES, TEST_PROMPTS):
         instance = {
                 "prompt": prompt,
-                "max_tokens": 10,
+                "max_tokens": 256,
                 "temperature": 0.0,
                 "top_p": 1.0,
                 "top_k": 1,

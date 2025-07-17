@@ -9,6 +9,7 @@ print("TPU devices:\n",jax.devices(),"\n")
 
 NUM_TPUS=jax.device_count()
 
+import random
 import os
 import json
 import sys
@@ -33,22 +34,21 @@ os.environ["KERAS_BACKEND"] = "jax"
 # overhead
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
 
-
 """
 A few configuration parameters
 """
-
 # MODEL_NAME is now read from config.conf
-# Deduce model size from name format: "gemma[_instruct]_{2b,7b}_en"
-MODEL_SIZE = MODEL_NAME.split("_")[-2]
-assert MODEL_SIZE in ("2b", "7b")
+# Deduce model size from name format: "gemma2[_instruct]_{2b,9b}_en"
+#MODEL_SIZE = MODEL_NAME.split("_")[-2]
+#assert MODEL_SIZE in ("2b", "7b")
 
 # Dataset
 DATASET_PATH = f"{DATASET_NAME}.jsonl"
-DATASET_URL = f"https://huggingface.co/datasets/databricks/{DATASET_NAME}/resolve/main/{DATASET_PATH}"
+#DATASET_URL = f"https://huggingface.co/datasets/databricks/{DATASET_NAME}/resolve/main/{DATASET_PATH}"
 
 # Finetuned model
-FINETUNED_MODEL_DIR = "./content/finetuned"
+FINETUNED_MODEL_DIR = "/mnt/content/finetuned"
+FINETUNED_KERAS_DIR = "/mnt/content/finetuned_keras"
 FINETUNED_WEIGHTS_PATH = f"{FINETUNED_MODEL_DIR}/model.weights.h5"
 FINETUNED_VOCAB_PATH = f"{FINETUNED_MODEL_DIR}/vocabulary.spm"
 
@@ -63,9 +63,9 @@ and was introduced in Keras 3 as part of the unified distribution API.
 import keras
 keras.utils.set_random_seed(42)
 # Run inferences at half precision
-keras.config.set_floatx("bfloat16")
+#keras.config.set_floatx("bfloat16")
 # Train at mixed precision (enable for large batch sizes)
-# keras.mixed_precision.set_global_policy("mixed_bfloat16")
+keras.mixed_precision.set_global_policy("mixed_bfloat16")
 import keras_hub
 
 # Create a device mesh with (1, 8) shape so that the weights are sharded across
@@ -107,7 +107,7 @@ model_parallel = keras.distribution.ModelParallel(
             layout_map=layout_map, batch_dim_name="batch")
 
 keras.distribution.set_distribution(model_parallel)
-gemma_lm = keras_hub.models.GemmaCausalLM.from_preset("gemma_7b_en")
+gemma_lm = keras_hub.models.GemmaCausalLM.from_preset(f"{MODEL_NAME}")
 gemma_lm.summary()
 
 """
@@ -124,14 +124,12 @@ Inference before finetuning
 """
 
 TEST_EXAMPLES = [
-            "What are good activities for a toddler?",
-            "What can we hope to see after rain and sun?",
-            "What's the most famous painting by Monet?",
-            "Who engineered the Statue of Liberty?",
-            'Who were "The Lumières"?',]
+        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        ]
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\n\nResponse:\n{response}"
+PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -143,7 +141,7 @@ gemma_lm.compile(sampler="greedy")
 print ("Before fine-tuning:\n")
 
 for test_example in TEST_EXAMPLES:
-        response = gemma_lm.generate(test_example, max_length=48)
+        response = gemma_lm.generate(test_example, max_length=256)
         output = response[len(test_example) :]
         print(f"{test_example}\n{output!r}\n")
 
@@ -153,24 +151,29 @@ Download and prepare dataset
 
 print("\nDowloading and preparing fine-tuning dataset...\n")
 
-os.system(f"wget -nv -nc -O {DATASET_PATH} {DATASET_URL}")
+#os.system(f"wget -nv -nc -O {DATASET_PATH} {DATASET_URL}")
 
 def generate_training_data(training_ratio: int = 100) -> list[str]:
         assert 0 < training_ratio <= 100
         data = []
-        with open(DATASET_PATH) as file:
-            for line in file.readlines():
+        with open(DATASET_PATH, 'r', encoding='utf-8') as file:
+            for line in file:
                 features = json.loads(line)
-                # Skip examples with context, for simplicity
-                if features["context"]:
-                    continue
-                data.append(PROMPT_TEMPLATE.format(**features))
+                # Format the data into the prompt template
+                data.append(PROMPT_TEMPLATE.format(
+                    instruction=features["input_text"],
+                    response=features["output_text"]
+                ))
+        print("Shuffling training data...")
+        random.shuffle(data)
+
         total_data_count = len(data)
         training_data_count = total_data_count * training_ratio // 100
         print(f"Training examples: {training_data_count}/{total_data_count}")
         return data[:training_data_count]
 
 # Limit to 10% for test purposes
+
 training_data = generate_training_data(training_ratio=100)
 
 
@@ -187,14 +190,14 @@ print ("\nFine-tuning...\n")
 
 # Enable LoRA for the model and set the LoRA rank to 4.
 #gemma_lm.backbone.enable_lora(rank=4) #DOES NOT SEEM TO WORK WITH SHARDING
-gemma_lm.summary()
+#gemma_lm.summary()
 
 # Limit the input sequence length to 128 to control memory usage.
-gemma_lm.preprocessor.sequence_length = 128
+gemma_lm.preprocessor.sequence_length = 256
 # Use AdamW (a common optimizer for transformer models).
 optimizer = keras.optimizers.AdamW(
-        learning_rate=1e-4,
-        weight_decay=0.01,)
+        learning_rate=5e-5,
+        weight_decay=0.001,)
 # Exclude layernorm and bias terms from decay.
 optimizer.exclude_from_weight_decay(var_names=["bias", "scale"])
 
@@ -202,11 +205,13 @@ gemma_lm.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         optimizer=optimizer,
         weighted_metrics=[keras_hub.metrics.Perplexity(from_logits=True)],
-        sampler="top_k")
+        sampler="greedy")
 
-BATCH_SIZE=8*NUM_TPUS
+BATCH_SIZE=2*NUM_TPUS
 
-gemma_lm.fit(training_data, epochs=2, batch_size=BATCH_SIZE)
+
+
+gemma_lm.fit(training_data, epochs=3, batch_size=BATCH_SIZE)
 
 """
 Inference after fine-tuning
@@ -214,16 +219,23 @@ Inference after fine-tuning
 
 print ("After fine-tuning:\n")
 for prompt in TEST_PROMPTS:
-        output = gemma_lm.generate(prompt, max_length=30)
+        output = gemma_lm.generate(prompt, max_length=256)
         print(f"{output}\n{'- '*40}")
 
 # Finetuned model
 
-print ("\nSaving fine-tuned model...\n")
+print ("\nSaving fine-tuned model weights...\n")
 
 # Make sure the directory exists
 os.system("mkdir -p "+FINETUNED_MODEL_DIR)
+os.system("mkdir -p "+FINETUNED_KERAS_DIR)
 
 gemma_lm.save_weights(FINETUNED_WEIGHTS_PATH, overwrite=True)
 
 gemma_lm.preprocessor.tokenizer.save_assets(FINETUNED_MODEL_DIR)
+
+print ("\nModel weights saved.\n")
+
+print ("\nSaving fine-tuned model preset in keras format...\n")
+gemma_lm.save_to_preset(FINETUNED_KERAS_DIR)
+print ("\nDone.\n")

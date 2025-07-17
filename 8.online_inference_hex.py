@@ -11,9 +11,9 @@ def test_vertexai_endpoint(client, endpoint_path: str, test_examples: list, test
     for question, prompt in zip(test_examples, test_prompts):
         instance = {
                 "prompt": prompt,
-                "max_tokens": 20,
-               "temperature": 0.1,
-                "top_p": 0.95,
+                "max_tokens": 256,
+                "temperature": 0.1,
+                "top_p": 1.0,
                 "top_k": 1,
                 "raw_response": True,
                 }
@@ -54,14 +54,11 @@ def main():
     endpoint_path = client.endpoint_path(
             project=PROJECT_ID, location=REGION, endpoint=ENDPOINT_ID,
             )
-
     test_examples = [
-            "What are good activities for a toddler?",
-            "What can we hope to see after rain and sun?",
-            "What is the most famous painting by Monet?",
-            "Who engineered the Statue of Liberty?",
-            'Who were "The Lumières"?',
+            "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+            "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
             ]
+
 
     # Prompt template for the training data and the finetuning tests
     prompt_template = "Instruction:\nProvide a direct and to the point  answer: {instruction}\n\nResponse:\n{response}"

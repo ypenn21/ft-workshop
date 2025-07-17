@@ -10,34 +10,18 @@
 
 set -euo pipefail
 
-# --- Configuration ---
-BUCKET_NAME="${1:-}"
-
-if [[ -z "$BUCKET_NAME" ]]; then
-    echo "❌ Error: Bucket name must be provided as the first argument." >&2
-    echo "Usage: ./setup.sh <your-gcs-bucket-name>" >&2
-    exit 1
-fi
-
-echo "--- Setting up environment for GCS Bucket: ${BUCKET_NAME} ---"
 
 # --- System Configuration ---
 echo "⚙️  Configuring transparent huge pages..."
 sudo sh -c "echo always > /sys/kernel/mm/transparent_hugepage/enabled"
 
-# --- GCS Fuse Installation (Modern and de-duplicated) ---
-echo "⚙️  Installing GCS Fuse..."
-export GCSFUSE_REPO=gcsfuse-$(lsb_release -c -s)
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.asc > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/cloud.google.asc] https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list > /dev/null
-sudo apt-get update
-sudo apt-get install -y gcsfuse
 
-# --- Mount GCS Bucket ---
-echo "⚙️  Mounting GCS bucket..."
-mkdir -p content
-gcsfuse --implicit-dirs "${BUCKET_NAME}" content
-echo "✔️ Bucket '${BUCKET_NAME}' mounted to './content'."
+# --- Mount Hyperdisk ---
+echo "⚙️  Mounting hyperdisk ..."
+sudo mkdir -p /mnt/content
+sudo mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/nvme0n2
+sudo mount -o discard,defaults /dev/nvme0n2 /mnt/content
+echo "✔️ Hyperdisk mounted to '/mnt/content'."
 
 # --- Python Dependencies ---
 echo "⚙️  Installing Python packages..."

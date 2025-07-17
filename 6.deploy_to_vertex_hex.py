@@ -151,7 +151,7 @@ tensor_parallel_size = tpu_count
 # Fraction of HBM memory allocated for KV cache after model loading. A larger value improves throughput but gives higher risk of TPU out-of-memory errors with long prompts.
 hbm_utilization_factor = 0.8  # @param
 # Maximum number of running sequences in a continuous batch.
-max_running_seqs = 128  # @param
+max_running_seqs = 256  # @param
 # Maximum context length for a request.
 max_model_len = 4096  # @param
 
@@ -178,7 +178,7 @@ def deploy_model_hexllm(
     tpu_topology: str = "1x4",
     disagg_topology: str = None,
     hbm_utilization_factor: float = 0.8,
-    max_running_seqs: int = 128,
+    max_running_seqs: int = 256,
     max_model_len: int = 4096,
     enable_prefix_cache_hbm: bool = False,
     endpoint_id: str = "",
@@ -277,7 +277,7 @@ model, endpoint = deploy_model_hexllm(
     model_name=get_job_name_with_datetime(prefix=MODEL_NAME_HEXLLM),
     model_id=MODEL_ID, #model_id,
     publisher="google",
-    publisher_model_id="gemma-7b1",
+    publisher_model_id="gemma-7b",
     base_model_id=HF_MODEL_ID,
     tensor_parallel_size=tensor_parallel_size,
     machine_type=machine_type,
@@ -289,7 +289,7 @@ model, endpoint = deploy_model_hexllm(
     enable_prefix_cache_hbm=enable_prefix_cache_hbm,
     min_replica_count=min_replica_count,
     max_replica_count=max_replica_count,
-    use_dedicated_endpoint=True,
+    use_dedicated_endpoint=False,
 )
 
 #model = models[LABEL]
@@ -298,17 +298,15 @@ model, endpoint = deploy_model_hexllm(
 
 # Online inference
 
-
 TEST_EXAMPLES = [
-                "What are good activities for a toddler?",
-                "What can we hope to see after rain and sun?",
-                "What's the most famous painting by Monet?",
-                "Who engineered the Statue of Liberty?",
-                'Who were "The Lumières"?',
-                ]
+        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        ]
+
+
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\n\nResponse:\n{response}"
+PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -319,7 +317,7 @@ def test_vertexai_endpoint(endpoint: aiplatform.Endpoint):
     for question, prompt in zip(TEST_EXAMPLES, TEST_PROMPTS):
         instance = {
                 "prompt": prompt,
-                "max_tokens": 10,
+                "max_tokens": 256,
                 "temperature": 0.0,
                 "top_p": 1.0,
                 "top_k": 1,
