@@ -16,5 +16,5 @@ gcloud container clusters create-auto "${CLUSTER_NAME}" --project "${PROJECT_ID}
 echo "Getting kubectl credentials..."
 gcloud container clusters get-credentials "${CLUSTER_NAME}" --project "${PROJECT_ID}" --region "${REGION}"
 echo "Creating kubectl secret..."
-kubectl create secret generic hf-secret  --from-literal=hf_api_token=$HF_TOKEN  --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic hf-secret  --from-literal=hf_api_token="${HF_TOKEN}"  --dry-run=client -o yaml | kubectl apply -f -
 echo "Done."
