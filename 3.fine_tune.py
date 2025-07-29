@@ -24,8 +24,11 @@ KAGGLE_KEY = os.environ.get("KAGGLE_KEY")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 DATASET_NAME = os.environ.get("DATASET_NAME")
 
-if not all([KAGGLE_USERNAME, KAGGLE_KEY, MODEL_NAME, DATASET_NAME]):
-    print("❌ Error: KAGGLE_USERNAME, KAGGLE_KEY, MODEL_NAME, and DATASET_NAME must be set in config.conf.")
+EPOCHS = os.environ.get("EPOCHS")
+BATCH_PER_TPU = os.environ.get("BATCH_PER_TPU")
+
+if not all([KAGGLE_USERNAME, KAGGLE_KEY, MODEL_NAME, DATASET_NAME, EPOCHS, BATCH_PER_TPU]):
+    print("❌ Error: KAGGLE_USERNAME, KAGGLE_KEY, MODEL_NAME, EPOCHS, BATCH_PER_TPU and DATASET_NAME must be set in config.conf.")
     sys.exit(1)
 
 # The Keras 3 distribution API is only implemented for the JAX backend for now.
@@ -44,13 +47,16 @@ A few configuration parameters
 
 # Dataset
 DATASET_PATH = f"{DATASET_NAME}.jsonl"
-#DATASET_URL = f"https://huggingface.co/datasets/databricks/{DATASET_NAME}/resolve/main/{DATASET_PATH}"
 
 # Finetuned model
 FINETUNED_MODEL_DIR = "/mnt/content/finetuned"
 FINETUNED_KERAS_DIR = "/mnt/content/finetuned_keras"
 FINETUNED_WEIGHTS_PATH = f"{FINETUNED_MODEL_DIR}/model.weights.h5"
 FINETUNED_VOCAB_PATH = f"{FINETUNED_MODEL_DIR}/vocabulary.spm"
+
+#EPOCHS=10
+#BATCH_PER_TPU=4
+BATCH_SIZE=BATCH_PER_TPU*NUM_TPUS
 
 """
 Load model
@@ -68,8 +74,8 @@ keras.utils.set_random_seed(42)
 keras.mixed_precision.set_global_policy("mixed_bfloat16")
 import keras_hub
 
-# Create a device mesh with (1, NUM_TPUS) shape so that the weights are sharded across
-# all TPUs.
+# Create a device mesh with (1, 8) shape so that the weights are sharded across
+# all 4 TPUs.
 device_mesh = keras.distribution.DeviceMesh(
             (1, NUM_TPUS),
             ["batch", "model"],
@@ -124,12 +130,14 @@ Inference before finetuning
 """
 
 TEST_EXAMPLES = [
-        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
-        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        #"Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        #"A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        "Peter has 25 apples to sell. He sells the first 10 for $1 each, the second lot of 10 for $0.75 each and the last 5 for $0.50 each. How much money does he make?",
+        "Bea has $40. She wants to rent a bike for $4/hour. How many hours can she ride the bike?",
         ]
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
+PROMPT_TEMPLATE = "user: {instruction}\nmodel: {response}\n"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -150,7 +158,7 @@ Download and prepare dataset
 """
 
 print("\nDowloading and preparing fine-tuning dataset...\n")
-# dataset is in vertex ai format {"input_text": "...", "output_text": "..."}
+
 #os.system(f"wget -nv -nc -O {DATASET_PATH} {DATASET_URL}")
 
 def generate_training_data(training_ratio: int = 100) -> list[str]:
@@ -172,7 +180,7 @@ def generate_training_data(training_ratio: int = 100) -> list[str]:
         print(f"Training examples: {training_data_count}/{total_data_count}")
         return data[:training_data_count]
 
-# Limit to % for test purposes
+# Limit to 10% for test purposes
 
 training_data = generate_training_data(training_ratio=100)
 
@@ -201,17 +209,14 @@ optimizer = keras.optimizers.AdamW(
 # Exclude layernorm and bias terms from decay.
 optimizer.exclude_from_weight_decay(var_names=["bias", "scale"])
 
+# Compile and train
 gemma_lm.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         optimizer=optimizer,
         weighted_metrics=[keras_hub.metrics.Perplexity(from_logits=True)],
         sampler="greedy")
 
-BATCH_SIZE=2*NUM_TPUS
-
-
-
-gemma_lm.fit(training_data, epochs=3, batch_size=BATCH_SIZE)
+gemma_lm.fit(training_data, epochs=EPOCHS, batch_size=BATCH_SIZE)
 
 """
 Inference after fine-tuning

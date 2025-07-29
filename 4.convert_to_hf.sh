@@ -28,3 +28,8 @@ python export_gemma_to_hf.py \
     --output_dir "${OUTPUT_DIR}"
 
 echo "Conversion complete. Output is in '${OUTPUT_DIR}'."
+
+echo "Patching in a chat template. It's a hack!"
+echo "The model is not tuned for chatting, only Q&A. We're doing this to overcome a bug in vllm later."
+jq --arg tpl "$GEMMA_CHAT" '.chat_template = $tpl' "${OUTPUT_DIR}"/tokenizer_config.json > tmp.json && mv tmp.json "${OUTPUT_DIR}"/tokenizer_config.json
+echo "Done."

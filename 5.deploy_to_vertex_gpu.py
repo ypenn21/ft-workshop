@@ -16,9 +16,10 @@ BUCKET_URI = os.environ.get("BUCKET_URI")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 HUGGINGFACE_MODEL_DIR = os.environ.get("HUGGINGFACE_MODEL_DIR")
 HF_TOKEN = os.environ.get("HF_TOKEN")
+FT_HF_MODEL = os.environ.get("FT_HF_MODEL")
 
-if not all([PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR]):
-    print("❌ Error: One or more required variables (PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR) not found in config.conf.")
+if not all([PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, FT_HF_MODEL, HUGGINGFACE_MODEL_DIR]):
+    print("❌ Error: One or more required variables (PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME,FT_HF_MODEL, HUGGINGFACE_MODEL_DIR) not found in config.conf.")
     sys.exit(1)
 
 # Converted model
@@ -116,7 +117,6 @@ run_gcloud_command(f"gcloud storage rsync --recursive --verbosity error {HUGGING
 # Define helper functions to deploy to vLLM container
 
 VLLM_DOCKER_URI = "us-docker.pkg.dev/vertex-ai/vertex-vision-model-garden-dockers/pytorch-vllm-serve:20250601_0916_RC01"
-#VLLM_DOCKER_URI = "us-docker.pkg.dev/vertex-ai/vertex-vision-model-garden-dockers/pytorch-vllm-serve:20241107_0917_tpu_experimental_RC01"
 
 def get_job_name_with_datetime(prefix: str) -> str:
         suffix = datetime.datetime.now().strftime("_%Y%m%d_%H%M%S")
@@ -175,7 +175,6 @@ def deploy_model_vllm_gpu(
 
     env_vars = {
             "MODEL_ID": base_model_id,
-            #"DEPLOY_SOURCE": "notebook",
             #"VLLM_ENGINE_ARGS": f"model={gcs_model_path}", # Optional: Add to env_vars for clarity/debug
             }
 
@@ -205,9 +204,6 @@ def deploy_model_vllm_gpu(
             service_account=service_account,
             min_replica_count=min_replica_count,
             max_replica_count=max_replica_count,
-            #system_labels={
-            #    "NOTEBOOK_NAME": "model_garden_pytorch_llama3_1_qwen2_5_deployment_tpu.ipynb"
-            #    },
             )
     return model, endpoint
 
@@ -219,7 +215,7 @@ def deploy_model_vllm_gpu(
 model, endpoint = deploy_model_vllm_gpu(
         model_name=get_job_name_with_datetime(prefix=MODEL_NAME_VLLM),
         base_model_id="google/gemma-7b",
-        model_id=DEPLOYED_MODEL_URI,
+        model_id=FT_HF_MODEL, #DEPLOYED_MODEL_URI,
         service_account=SERVICE_ACCOUNT,
         machine_type="g2-standard-12",
         accelerator_type= "NVIDIA_L4",
@@ -234,12 +230,14 @@ model, endpoint = deploy_model_vllm_gpu(
 # Online inference
 
 TEST_EXAMPLES = [
-        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
-        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        #"Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        #"A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        "Peter has 25 apples to sell. He sells the first 10 for $1 each, 10 more for $0.75 each and the last 5 for $0.50 each. How much money does he make?",
+        "Bea has $40. She wants to rent a bike for $4/hour. How many hours can she ride the bike?",
         ]
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
+PROMPT_TEMPLATE = "user: {instruction}\nmodel: {response}\n"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -251,9 +249,9 @@ def test_vertexai_endpoint(endpoint: aiplatform.Endpoint):
         instance = {
                 "prompt": prompt,
                 "max_tokens": 256,
-                "temperature": 0.0,
-                "top_p": 1.0,
-                "top_k": 1,
+                "temperature": 1.0,
+                "top_p": 0.95,
+                "top_k": 5,
                 "raw_response": True,
                 }
         response = endpoint.predict(instances=[instance])

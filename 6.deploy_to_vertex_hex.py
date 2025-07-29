@@ -17,9 +17,10 @@ MODEL_NAME = os.environ.get("MODEL_NAME")
 HUGGINGFACE_MODEL_DIR = os.environ.get("HUGGINGFACE_MODEL_DIR")
 HF_MODEL_ID = os.environ.get("HF_MODEL_ID")
 HF_TOKEN = os.environ.get("HF_TOKEN")
+FT_HF_MODEL = os.environ.get("FT_HF_MODEL")
 
-if not all([PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR, HF_MODEL_ID]):
-    print("❌ Error: One or more required variables (PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR, HF_MODEL_ID) not found in config.conf.")
+if not all([PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR, FT_HF_MODEL, HF_MODEL_ID]):
+    print("❌ Error: One or more required variables (PROJECT_ID, REGION, BUCKET_URI, MODEL_NAME, HUGGINGFACE_MODEL_DIR, FT_HF_MODEL, HF_MODEL_ID) not found in config.conf.")
     sys.exit(1)
 
 # Converted model
@@ -119,7 +120,6 @@ run_gcloud_command(f"gcloud storage rsync --recursive --verbosity error {HUGGING
 
 HEXLLM_DOCKER_URI = "us-docker.pkg.dev/vertex-ai-restricted/vertex-vision-model-garden-dockers/hex-llm-serve:20241210_2323_RC00"
 
-
 # Sets ct5lp-hightpu-4t (4 TPU chips) to deploy models.
 machine_type = "ct5lp-hightpu-4t"  # @param ["ct5lp-hightpu-4t", "ct5lp-hightpu-8t"]
 # Note: 1 TPU V5 chip has only one core.
@@ -163,7 +163,6 @@ max_replica_count = 1
 def get_job_name_with_datetime(prefix: str) -> str:
         suffix = datetime.datetime.now().strftime("_%Y%m%d_%H%M%S")
         return f"{prefix}{suffix}"
-
 
 
 def deploy_model_hexllm(
@@ -249,9 +248,6 @@ def deploy_model_hexllm(
         serving_container_shared_memory_size_mb=(16 * 1024),  # 16 GB
         serving_container_deployment_timeout=7200,
         location=TPU_DEPLOYMENT_REGION,
-  #      model_garden_source_model_name=(
-  #          f"publishers/{publisher}/models/{publisher_model_id}"
-  #      ),
     )
 
     model.deploy(
@@ -261,10 +257,6 @@ def deploy_model_hexllm(
         deploy_request_timeout=1800,
         min_replica_count=min_replica_count,
         max_replica_count=max_replica_count,
- #       system_labels={
- #           "NOTEBOOK_NAME": "model_garden_pytorch_llama3_1_deployment.ipynb",
- #           "NOTEBOOK_ENVIRONMENT": common_util.get_deploy_source(),
- #       },
     )
     return model, endpoint
 
@@ -275,7 +267,7 @@ def deploy_model_hexllm(
 LABEL = "hexllm_tpu"
 model, endpoint = deploy_model_hexllm(
     model_name=get_job_name_with_datetime(prefix=MODEL_NAME_HEXLLM),
-    model_id=MODEL_ID, #model_id,
+    model_id=FT_HF_MODEL, #MODEL_ID,
     publisher="google",
     publisher_model_id="gemma-7b",
     base_model_id=HF_MODEL_ID,
@@ -292,21 +284,19 @@ model, endpoint = deploy_model_hexllm(
     use_dedicated_endpoint=False,
 )
 
-#model = models[LABEL]
-#endpoint = endpoints[LABEL]
-
-
 # Online inference
 
 TEST_EXAMPLES = [
-        "Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
-        "A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        #"Lizzy has to ship 540 pounds of fish that are packed into 30-pound crates. If the shipping cost of each crate is $1.5, how much will Lizzy pay for the shipment?",
+        #"A school choir needs robes for each of its 30 singers. Currently, the school has only 12 robes so they decided to buy the rest. If each robe costs $2, how much will the school spend?",
+        "Peter has 25 apples to sell. He sells the first 10 for $1 each, 10 more for $0.75 each and the last 5 for $0.50 each. How much money does he make?",
+        "Bea has $40. She wants to rent a bike for $4/hour. How many hours can she ride the bike?",
         ]
 
 
 
 # Prompt template for the training data and the finetuning tests
-PROMPT_TEMPLATE = "Instruction:\n{instruction}\nResponse:\n{response}"
+PROMPT_TEMPLATE = "user: {instruction}\nmodel: {response}\n"
 
 TEST_PROMPTS = [
         PROMPT_TEMPLATE.format(instruction=example, response="")
@@ -318,9 +308,9 @@ def test_vertexai_endpoint(endpoint: aiplatform.Endpoint):
         instance = {
                 "prompt": prompt,
                 "max_tokens": 256,
-                "temperature": 0.0,
-                "top_p": 1.0,
-                "top_k": 1,
+                "temperature": 1.0,
+                "top_p": 0.95,
+                "top_k": 10,
                 "raw_response": True,
                 }
         response = endpoint.predict(instances=[instance])

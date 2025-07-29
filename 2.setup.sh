@@ -16,7 +16,7 @@ echo "⚙️  Configuring transparent huge pages..."
 sudo sh -c "echo always > /sys/kernel/mm/transparent_hugepage/enabled"
 
 
-# --- Mount Hyperdisk ---
+# --- Mount GCS Bucket ---
 echo "⚙️  Mounting hyperdisk ..."
 sudo mkdir -p /mnt/content
 sudo mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/nvme0n2
@@ -28,5 +28,6 @@ echo "⚙️  Installing Python packages..."
 pip install jax[tpu] tensorflow-cpu keras-hub sentencepiece google-cloud-aiplatform
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 pip install transformers accelerate
+pip install -U huggingface_hub[cli]
 
 echo "--- ✅ Setup complete ---"
