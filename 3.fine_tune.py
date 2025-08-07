@@ -1,6 +1,87 @@
 """
 Set up Keras JAX backend
 Import JAX and run a sanity check on TPU. TPUv6e-4 host offers 4 TPU cores with 32GB of memory each.
+
+
+Here’s a summary of the training (fine-tuning) process as implemented in 3.fine_tune.py:
+
+Setup and Configuration
+
+Loads configuration and environment variables (such as dataset name, model name, batch size, etc.) from a config file.
+Sets up the Keras backend to use JAX, optimized for TPU training.
+Distributed Model Loading
+
+Sets up a device mesh and sharding strategy to distribute the model’s weights across multiple TPUs for efficient parallel training.
+Loads the base language model (e.g., a Gemma model) with specified sharding.
+Pre-finetuning Evaluation
+
+Runs inference with the base model on test prompts to show how the model performs before fine-tuning.
+Preparing Training Data
+
+Loads the dataset (in JSONL format), converts each data entry into a prompt/response format, shuffles the data, and selects the desired percentage for training.
+Fine-tuning Setup
+
+Optionally enables LoRA (Low-Rank Adaptation) for efficient parameter updating (though this may not be compatible with sharding in this implementation).
+Sets the input sequence length and configures the optimizer (AdamW with weight decay, excluding biases and normalization layers from decay).
+Model Training
+
+Compiles the model with loss and metrics (including perplexity).
+Trains the model on the prepared dataset for a specified number of epochs and batch size.
+Post-finetuning Evaluation
+
+Runs inference again on the same test prompts to show improvements after fine-tuning.
+Saving the Model
+
+Saves the fine-tuned weights, vocabulary, and Keras preset to disk for future use or deployment.
+This process leverages TPUs for scale, supports advanced distribution and sharding, and includes before/after evaluation to demonstrate the effect of fine-tuning. Let me know if you’d like details on any specific step!
+
+what is the best efficient EPOCHS to set this to? what does equal to in terms of hours or minutes?
+The optimal number of EPOCHS for fine-tuning depends on several factors, including dataset size, model size, and the desired trade-off between performance and training time. In many practical cases:
+
+For small to medium datasets, 3–5 epochs is common.
+For larger datasets or when overfitting is not a concern, 10–20 epochs can be used.
+If you see the model start to overfit (validation loss increases while training loss decreases), you should reduce the number of epochs or use early stopping.
+For instructional or demonstration purposes, 1–3 epochs is often sufficient.
+In this specific repo (ft-workshop):
+
+The default value is not hardcoded in the script; it is expected from config.conf.
+The script is designed for distributed training on TPUs, which is very efficient.
+How long does an epoch take?
+The time per epoch depends on:
+
+Dataset size: More data = longer epoch.
+Batch size: Larger batch = fewer steps per epoch, but more memory usage.
+Model size: Larger models take longer per batch.
+Hardware: More/faster TPUs = faster training.
+Example estimation (for TPUs, as in your script):
+Small dataset (a few thousand examples), batch size 32–128, 8 TPU cores:
+One epoch can take from under a minute to several minutes.
+Larger dataset (hundreds of thousands of examples):
+One epoch could take 10–30 minutes.
+Rule of thumb for quick experimentation:
+
+Set EPOCHS=3 for initial runs.
+Monitor training/validation loss:
+If the model is still improving, increase epochs.
+If it plateaus or overfits, stop earlier.
+To get a precise time:
+Run with EPOCHS=1 and measure the time taken for that epoch.
+Multiply by the desired number of epochs.
+Summary:
+
+Start with 3–5 epochs for efficiency.
+One epoch may take from a minute to 30 minutes, depending on dataset and hardware.
+Measure with a single epoch run for an exact estimate.
+Would you like help modifying your config or want a script to time a single epoch?
+
+what does epoch mean exactly?
+In machine learning, an epoch is one complete pass through the entire training dataset by the learning algorithm.
+
+During one epoch, the model sees every example in the dataset once and updates its weights accordingly (often in smaller batches).
+Training usually involves multiple epochs, so the model processes the dataset multiple times, each time learning and adjusting to minimize error.
+For example, if you have 1,000 training samples and use a batch size of 100, it will take 10 batches to complete 1 epoch. If you train for 5 epochs, the model will see each sample 5 times (in different orders, if shuffled).
+Summary:
+An epoch = one full cycle through all the training data. Multiple epochs help the model learn better by allowing it to adjust its weights based on the data several times.
 """
 
 import jax
